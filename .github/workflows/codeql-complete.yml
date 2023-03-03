@@ -38,6 +38,12 @@ jobs:
         fi
         echo PYTHON_PACKAGE_MANAGER=$pkg_mng >> $GITHUB_OUTPUT
 
+    - name: "Install poetry"
+      if: steps.find-python-package-manager.outputs.PYTHON_PACKAGE_MANAGER == 'poetry'
+      run: pipx install poetry
+      #  curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+      #  echo "$HOME/.poetry/bin" >> $GITHUB_PATH
+      
     - uses: actions/setup-python@v4
       with:
         python-version: '3.9' # The version of Python to use
