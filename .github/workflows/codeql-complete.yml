@@ -1,0 +1,70 @@
+name: "CodeQL - Complete analysis"
+
+on:
+  schedule:
+    - cron: '44 23 11 * *' # Run CodeQL scan on a day of every month at 11:44 PM UTC
+  workflow_dispatch: 
+  
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 # Set timeout to 30 minutes; Change if your project takes longer to scan
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    # This step will find the package manager used in the project and set the environment variable PYTHON_PACKAGE_MANAGER
+    # to the package manager used. Default one is pip, unless a poetry.lock file is found.
+    - name: Find Python package manager from manifest files
+      id: find-python-package-manager
+      run: |
+        pkg_mng='pip'
+        if [ $(find . -name poetry.lock | wc -l | awk '{print $1}') -gt 0 ]; then
+          echo "Found a poetry.lock file proceeding with poetry as package manager"
+          pkg_mng='poetry'
+        else
+          echo "No poetry.lock file found, proceeding with pip as package manager"
+        fi
+        echo PYTHON_PACKAGE_MANAGER=$pkg_mng >> $GITHUB_OUTPUT
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9' # The version of Python to use
+        cache: ${{ steps.find-python-package-manager.outputs.PYTHON_PACKAGE_MANAGER }} # The package manager to use 
+        cache-dependency-path: |
+          **/requirement.txt
+          **/requirements.txt
+          **/requirement*.txt
+          **/setup.cfg
+          **/poetry.lock
+          **/Pipfile*
+          **/pyproject.toml
+
+    - name: Setup CODEQL_PYTHON environment variable 
+      run: |
+       echo "CODEQL_PYTHON=$(which python)" >> $GITHUB_ENV
+      working-directory: . 
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        # queries: security-extended,security-and-quality
+        # debug: true # Only use this for debugging. It will increase the runtime of the action and take up storage
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:${{matrix.language}}"
